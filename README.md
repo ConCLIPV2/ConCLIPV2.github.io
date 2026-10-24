@@ -1,4 +1,4 @@
-# ConceptCLIP professor demonstration
+# Image Assessment presentation
 
 Open **index.html** to show the entire demonstration locally. No installation,
 login, access code, Python server, database or backend URL is needed.
