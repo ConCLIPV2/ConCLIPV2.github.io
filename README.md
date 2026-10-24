@@ -23,6 +23,12 @@ You may instead use Pages branch deployment from main / root.
 
 All 7 BrEaST and all 6 LUNA16 attributes have scores and annotation questions
 at every step. Only the heatmap panel uses the four selected attributes.
+The image context displays one source image, without a second crop view.
+
+BrEaST cases 244 and 158, and LUNA16 cases 545 and 283, appear first.
+Their 26 adjusted display values are explicitly marked as illustrative
+presentation scores. Original model measurements remain unchanged in the
+data; the adjusted values do not have invented positive/negative components.
 
 The 50 cases, 325 attribute displays and 300 prepared images are intentionally
 part of this public presentation. This is a demonstration, not response
