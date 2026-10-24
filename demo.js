@@ -36,8 +36,15 @@
     return d[scope];
   };
   const fmt = value => Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(4)}` : '—';
-  const scoreAvailable = a => a.score_status !== 'unavailable' && Number.isFinite(a.score);
-  const prediction = a => a.answer_options?.[a.prediction] || 'No preference';
+  const isPresentationCase = () => Boolean(currentCase().presentation_scores);
+  const displayedScore = a => isPresentationCase() ? currentCase().presentation_scores[a.id] : a.score;
+  const scoreAvailable = a => Number.isFinite(displayedScore(a)) && (isPresentationCase() || a.score_status !== 'unavailable');
+  const prediction = a => {
+    const score = displayedScore(a);
+    const option = isPresentationCase() ? score > 0 ? 'present' : score < 0 ? 'absent' : null : a.prediction;
+    return a.answer_options?.[option] || 'No preference';
+  };
+  const caseLabel = (c, index) => c.display_label || `Case ${String(index+1).padStart(2,'0')}`;
   const selectedHeatmaps = () => (currentCase().heatmap_attribute_ids || [])
     .map(id => currentCase().attributes.find(a => a.id === id))
     .filter(a => a?.map_image);
@@ -51,17 +58,17 @@
   }
 
   function home() {
-    return `${header()}<main id="main-content"><div class="landing demo-landing"><section class="landing-copy"><div class="kicker">Diagnosis + concept annotation</div><h1>Two tasks.<br>Three perspectives.</h1><p>Assess whether a lesion is benign or malignant and annotate its visual attributes. Review the image, attribute scores, and heatmaps across three steps.</p></section><section class="dataset-cards" aria-label="Choose a dataset">${['breast','luna'].map(id => `<article class="dataset-card"><div class="icon-box ${id === 'luna' ? 'gold' : ''}">${icon(id === 'breast' ? 'heart' : 'scan')}</div><div><h2>${names[id]}</h2><p>${esc(data.modules[id].label)}</p><div class="dataset-count">${data.modules[id].cases.length} cases · ${attributeCountLabel(id)} · 3 steps</div></div><button class="btn full" type="button" data-action="start" data-module="${id}">Explore ${names[id]} ${icon('arrow')}</button></article>`).join('')}</section></div><section class="flow-strip demo-flow" aria-label="Study sequence">${[['01','Image only','Diagnosis + all attribute annotations'],['02','Attribute scores','Reassess both tasks with AI scores'],['03','Heatmap review','Reassess both tasks with visual evidence']].map(s => `<div class="flow-point"><span class="flow-number">${s[0]}</span><div><h3>${s[1]}</h3><p>${s[2]}</p></div></div>`).join('')}</section></main>`;
+    return `${header()}<main id="main-content"><div class="landing demo-landing"><section class="landing-copy"><div class="kicker">Diagnosis + concept annotation</div><h1>Two tasks.<br>Three perspectives.</h1><p>Assess whether a lesion is benign or malignant and annotate its visual attributes. Review the image, attribute scores, and heatmaps across three steps.</p></section><section class="dataset-cards" aria-label="Choose a dataset">${['breast','luna'].map(id => `<article class="dataset-card"><div class="icon-box ${id === 'luna' ? 'gold' : ''}">${icon(id === 'breast' ? 'heart' : 'scan')}</div><div><h2>${names[id]}</h2><p>${esc(data.modules[id].label)}</p><div class="dataset-count">${data.modules[id].cases.length} cases · ${attributeCountLabel(id)} · 3 steps</div></div><button class="btn full" type="button" data-action="start" data-module="${id}">Explore ${names[id]} ${icon('arrow')}</button></article>`).join('')}</section></div><section class="flow-strip demo-flow" aria-label="Study sequence">${[['01','Image only','Diagnosis + all attribute annotations'],['02','Attribute scores','Reassess both tasks with attribute scores'],['03','Heatmap review','Reassess both tasks with visual evidence']].map(s => `<div class="flow-point"><span class="flow-number">${s[0]}</span><div><h3>${s[1]}</h3><p>${s[2]}</p></div></div>`).join('')}</section></main>`;
   }
 
   function casePicker(id) {
-    return `<label class="field-label" for="${id}">Explore a case</label><select class="case-select" id="${id}" data-case-select>${currentModule().cases.map((c,i) => `<option value="${i}" ${i === caseIndex ? 'selected' : ''}>Case ${String(i+1).padStart(2,'0')} · ${esc(c.id)}</option>`).join('')}</select>`;
+    return `<label class="field-label" for="${id}">Explore a case</label><select class="case-select" id="${id}" data-case-select>${currentModule().cases.map((c,i) => `<option value="${i}" ${i === caseIndex ? 'selected' : ''}>${esc(caseLabel(c,i))} · ${esc(c.id)}</option>`).join('')}</select>`;
   }
   function caseButtons() {
     return `<button class="btn secondary small" type="button" data-action="prev-case" ${caseIndex === 0 ? 'disabled' : ''} aria-label="Previous case">${icon('back')} Previous</button><button class="btn secondary small" type="button" data-action="next-case" ${caseIndex === currentModule().cases.length - 1 ? 'disabled' : ''} aria-label="Next case">Next ${icon('arrow')}</button>`;
   }
   function sidebar() {
-    return `<aside class="sidebar" aria-label="Study navigation"><div><div class="kicker">Your dataset</div><div class="module-name">${esc(names[moduleId])}</div><div class="progress-text"><span>Case ${caseIndex+1} of ${currentModule().cases.length}</span><span>Step ${stage+1} of 3</span></div></div><div>${casePicker('case-select')}<div class="case-nav">${caseButtons()}</div></div><ol class="steps">${[['Image only','Initial judgments'],['Attribute scores','Add AI evidence'],['Heatmaps','Review visual evidence']].map((s,i) => `<li class="${i === stage ? 'active' : ''}" ${i === stage ? 'aria-current="step"' : ''}><button type="button" data-stage="${i}" aria-label="Step ${i+1}: ${s[0]}"><span class="step-num">${i+1}</span><span><strong>${s[0]}</strong><small>${s[1]}</small></span></button></li>`).join('')}</ol><div class="sidebar-note">Both tasks appear at every step. Confidence is optional for each answer.</div></aside>`;
+    return `<aside class="sidebar" aria-label="Study navigation"><div><div class="kicker">Your dataset</div><div class="module-name">${esc(names[moduleId])}</div><div class="progress-text"><span>Case ${caseIndex+1} of ${currentModule().cases.length}</span><span>Step ${stage+1} of 3</span></div></div><div>${casePicker('case-select')}<div class="case-nav">${caseButtons()}</div></div><ol class="steps">${[['Image only','Initial judgments'],['Attribute scores','Add score evidence'],['Heatmaps','Review visual evidence']].map((s,i) => `<li class="${i === stage ? 'active' : ''}" ${i === stage ? 'aria-current="step"' : ''}><button type="button" data-stage="${i}" aria-label="Step ${i+1}: ${s[0]}"><span class="step-num">${i+1}</span><span><strong>${s[0]}</strong><small>${s[1]}</small></span></button></li>`).join('')}</ol><div class="sidebar-note">Both tasks appear at every step. Confidence is optional for each answer.</div></aside>`;
   }
 
   function imageBlock(url, label) {
@@ -69,24 +76,24 @@
   }
   function sourcePanel() {
     const c = currentCase();
-    return `<section class="panel"><div class="panel-header"><div><h2>Image context</h2><p>${moduleId === 'luna' ? 'Supplied axial CT slice' : 'Supplied ultrasound image'}</p></div><span class="pill">Unmarked images</span></div><div class="source-grid"><div class="image-cell">${imageBlock(c.source_image,'Unmarked source image')}<div class="image-caption"><strong>Source image</strong><span>Unmarked</span></div></div><div class="image-cell">${imageBlock(c.input_image,'Unmarked image crop')}<div class="image-caption"><strong>Image crop</strong><span>Unmarked</span></div></div></div></section>`;
+    return `<section class="panel source-panel"><div class="panel-header"><div><h2>Source image</h2><p>${moduleId === 'luna' ? 'Supplied axial CT slice' : 'Supplied ultrasound image'}</p></div></div><div class="source-grid"><div class="image-cell">${imageBlock(c.source_image,'Unmarked source image')}</div></div></section>`;
   }
   function prompts(a) {
     const positive = a.positive_prompt || a.prompts?.positive || a.prompts?.[0] || '';
     const negative = a.negative_prompt || a.prompts?.negative || a.prompts?.[1] || '';
-    const showComponents = scoreAvailable(a) && Number.isFinite(a.score_pos) && Number.isFinite(a.score_neg);
+    const showComponents = !isPresentationCase() && scoreAvailable(a) && Number.isFinite(a.score_pos) && Number.isFinite(a.score_neg);
     return `<details class="prompt-details"><summary>View descriptions${showComponents ? ' and scores' : ''}</summary><div class="prompt-line"><strong>Positive${showComponents ? ` · ${a.score_pos.toFixed(4)}` : ''}</strong><br>${esc(positive)}</div><div class="prompt-line"><strong>Negative${showComponents ? ` · ${a.score_neg.toFixed(4)}` : ''}</strong><br>${esc(negative)}</div></details>`;
   }
   function scoreResult(a) {
     return scoreAvailable(a)
-      ? `<span class="prediction">${esc(prediction(a))}</span><span class="margin-value">${fmt(a.score)}</span>`
+      ? `<span class="prediction">${esc(prediction(a))}</span><span class="margin-value">${fmt(displayedScore(a))}</span>`
       : '<span class="score-unavailable">Score unavailable</span>';
   }
   function advicePanel() {
     const attributes = currentCase().attributes;
     const globalMargins = attributes.filter(scoreAvailable).every(a => !a.score_definition || a.score_definition === 'global_cosine_margin');
-    const description = globalMargins ? 'Score = positive − negative · not a cancer probability' : 'Attribute-specific AI scores · not a cancer probability';
-    return `<section class="panel" id="attribute-scores"><div class="panel-header"><div><h2>AI attribute evidence</h2><p>${description}</p></div><span class="pill">${attributes.length} attributes</span></div><div class="advice-grid">${attributes.map(a => `<article class="advice-card" data-score-attribute="${esc(a.id)}"><div class="attribute-line"><h3>${esc(a.label)}</h3></div><div class="prediction-line">${scoreResult(a)}</div>${prompts(a)}</article>`).join('')}</div><div class="visual-foot">Positive and negative refer to the attribute descriptions, not to benign or malignant status.</div></section>`;
+    const description = isPresentationCase() ? '<span class="presentation-score-label">Illustrative presentation scores</span> · signs refer to the positive or negative descriptions.' : globalMargins ? 'Score = positive − negative · not a cancer probability' : 'Attribute-specific AI scores · not a cancer probability';
+    return `<section class="panel" id="attribute-scores"><div class="panel-header"><div><h2>${isPresentationCase() ? 'Attribute scores' : 'AI attribute evidence'}</h2><p>${description}</p></div><span class="pill">${attributes.length} attributes</span></div><div class="advice-grid">${attributes.map(a => `<article class="advice-card" data-score-attribute="${esc(a.id)}"><div class="attribute-line"><h3>${esc(a.label)}</h3></div><div class="prediction-line">${scoreResult(a)}</div>${prompts(a)}</article>`).join('')}</div><div class="visual-foot">Positive and negative refer to the attribute descriptions, not to benign or malignant status.</div></section>`;
   }
   function heatmapPanel() {
     const maps = selectedHeatmaps();
@@ -115,7 +122,7 @@
     return `<section class="panel response-panel"><div class="response-intro"><div class="kicker">Step ${stage+1} of 3 · ${esc(stages[stage])}</div><p>Assess both tasks using the available evidence.</p><a class="text-link evidence-link" href="#case-evidence">Review the images ${icon('eye')}</a></div><form id="assessment-form"><section class="task-section" aria-labelledby="diagnosis-heading"><div class="task-heading"><span class="task-number">1</span><div><div class="kicker">Task 1</div><h2 id="diagnosis-heading">Diagnosis</h2></div></div><fieldset class="response-group"><legend class="question">${esc(c.diagnosis_question)}</legend>${answers('diagnosis',{benign:'Benign',malignant:'Malignant',cannot_assess:'Cannot assess'},'option-stack diagnosis-options')}</fieldset><div data-confidence-container="diagnosis">${confidenceField('diagnosis','Confidence in your diagnosis')}</div></section><section class="task-section" aria-labelledby="concept-heading"><div class="task-heading"><span class="task-number">2</span><div><div class="kicker">Task 2</div><h2 id="concept-heading">Concept annotation</h2></div></div><p class="annotation-help">Choose the description that matches your own assessment for each attribute.</p><div class="concept-cards">${c.attributes.map(conceptCard).join('')}</div></section><p class="demo-form-note">Confidence refers to the answer you chose.</p>${stageControls('bottom')}</form></section>`;
   }
   function workspace() {
-    return `${header()}<div class="study-layout">${sidebar()}<main id="main-content" class="workspace"><div class="case-heading"><div><div class="kicker">${esc(names[moduleId])} · Case ${String(caseIndex+1).padStart(2,'0')} of ${currentModule().cases.length}</div><h1>${stages[stage]}</h1></div>${stageControls('top')}</div><div class="mobile-case-controls">${casePicker('mobile-case-select')}${caseButtons()}</div><div class="workspace-grid"><div class="visual-area" id="case-evidence" role="region" aria-label="Case images and available evidence" tabindex="0">${sourcePanel()}${stage > 0 ? advicePanel() : ''}${stage === 2 ? heatmapPanel() : ''}</div>${assessmentPanel()}</div></main></div>`;
+    return `${header()}<div class="study-layout">${sidebar()}<main id="main-content" class="workspace"><div class="case-heading"><div><div class="kicker">${esc(names[moduleId])} · ${esc(caseLabel(currentCase(),caseIndex))} · ${caseIndex+1} of ${currentModule().cases.length}</div><h1>${stages[stage]}</h1></div>${stageControls('top')}</div><div class="mobile-case-controls">${casePicker('mobile-case-select')}${caseButtons()}</div><div class="workspace-grid"><div class="visual-area" id="case-evidence" role="region" aria-label="Case images and available evidence" tabindex="0">${sourcePanel()}${stage > 0 ? advicePanel() : ''}${stage === 2 ? heatmapPanel() : ''}</div>${assessmentPanel()}</div></main></div>`;
   }
   function finish() {
     return `${header()}<main id="main-content" class="complete-panel"><div class="complete-icon">${icon('check')}</div><div class="kicker">Review complete</div><h1>You have reached the final case.</h1><p>Review the last case or choose another dataset.</p><div class="demo-finish-actions"><button class="btn secondary" type="button" data-action="return">Back to last case</button><button class="btn" type="button" data-action="home">Explore another dataset ${icon('arrow')}</button></div></main>`;
